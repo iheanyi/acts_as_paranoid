@@ -74,10 +74,15 @@ module ActsAsParanoid
         "#{table_name}.#{paranoid_column}"
       end
 
-      def dependent_associations
+      def dependent_destroy_associations
         reflect_on_all_associations.select do |a|
-          [:destroy, :delete_all].include?(a.options[:dependent])
+          [:destroy].include?(a.options[:dependent])
         end
+      end
+
+      def dependent_delete_associations
+        reflect_on_all_associations.select do |a|
+          [:delete_all].include?(a.options[:dependent])
       end
 
       def delete_now_value
@@ -251,7 +256,7 @@ module ActsAsParanoid
     end
 
     def destroy_dependent_associations!
-      self.class.dependent_associations.each do |reflection|
+      self.class.dependent_destroy_associations.each do |reflection|
         assoc = association(reflection.name)
         next unless (klass = assoc.klass).paranoid?
 
@@ -259,6 +264,16 @@ module ActsAsParanoid
           .only_deleted.merge(get_association_scope(assoc))
           .each(&:destroy!)
       end
+
+      self.class.dependent_delete_associations.each do |reflection|
+        assoc = association(reflection.name)
+        next unless (klass = assoc.klass).paranoid?
+
+        klass
+          .only_deleted.merge(get_association_scope(assoc))
+          .each(&:delete)
+      end
+
     end
 
     def recover_dependent_association(reflection, deleted_value, options)
